@@ -1,33 +1,35 @@
+import AbstractStatefulView from '../framework/view/abstract-stateful-view.js';
 import he from 'he';
 import { EventType } from '../const.js';
 
 const EVENT_TYPES = Object.values(EventType);
 
-export default class EventEditView {
-  constructor(event = null, destinations = [], offers = []) {
-    this.event = event;
-    this.destinations = destinations;
-    this.offers = offers;
-    this.element = null;
+export default class EventEditView extends AbstractStatefulView {
+  #destinations;
+  #offers;
+  #onFormSubmit;
+  #onCloseClick;
+  #onDeleteClick;
 
-    this._eventData = event || {
-      type: EventType.FLIGHT,
-      destination: '',
-      dateFrom: '',
-      dateEnd: '',
-      basePrice: 0,
-      offers: [],
-      isFavorite: false,
-    };
+  constructor(event, destinations, offers, onFormSubmit, onCloseClick, onDeleteClick) {
+    super();
+    this.#destinations = destinations;
+    this.#offers = offers;
+    this.#onFormSubmit = onFormSubmit;
+    this.#onCloseClick = onCloseClick;
+    this.#onDeleteClick = onDeleteClick;
+
+    this._setState(EventEditView.parseEventToState(event));
+    this._restoreHandlers();
   }
 
   get template() {
-    const { type, destination, dateFrom, dateEnd, basePrice } = this._eventData;
-    const destinationData = this.destinations.find((d) => d.id === destination);
-    const currentOffers = this.offers.find((o) => o.type === type)?.offers || [];
-    const selectedOffers = this._eventData.offers || [];
+    const { type, destination, dateFrom, dateEnd, basePrice } = this._state;
+    const destinationData = this.#destinations.find((d) => d.id === destination);
+    const currentOffers = this.#offers.find((o) => o.type === type)?.offers || [];
+    const selectedOffers = this._state.offers || [];
 
-    const destinationOptions = this.destinations.map((d) =>
+    const destinationOptions = this.#destinations.map((d) =>
       `<option value="${he.encode(d.name)}"></option>`
     ).join('');
 
@@ -154,10 +156,10 @@ export default class EventEditView {
             >
           </div>
           <button class="event__save-btn btn btn--blue" type="submit">Save</button>
-          <button class="event__reset-btn" type="reset">${this.event ? 'Delete' : 'Cancel'}</button>
-          ${this.event
-    ? '<button class="event__rollup-btn" type="button"><span class="visually-hidden">Open event</span></button>'
-    : ''}
+          <button class="event__reset-btn" type="reset">${this._state.id ? 'Delete' : 'Cancel'}</button>
+          <button class="event__rollup-btn" type="button">
+            <span class="visually-hidden">Open event</span>
+          </button>
         </header>
         <section class="event__details">
           ${currentOffers.length > 0
@@ -167,24 +169,48 @@ export default class EventEditView {
                 <div class="event__available-offers">
                   ${offersHtml}
                 </div>
-              </section>`
-    : ''}
+              </section>` : ''}
           ${destinationHtml}
         </section>
       </form>
     `;
   }
 
-  getElement() {
-    if (!this.element) {
-      this.element = document.createElement('div');
-      this.element.innerHTML = this.template;
-      this.element = this.element.firstElementChild;
+  _restoreHandlers() {
+    const rollupBtn = this.element.querySelector('.event__rollup-btn');
+    const resetBtn = this.element.querySelector('.event__reset-btn');
+    const form = this.element.querySelector('form');
+
+    if (rollupBtn) {
+      rollupBtn.addEventListener('click', this.#closeClickHandler);
     }
-    return this.element;
+    if (resetBtn) {
+      resetBtn.addEventListener('click', this.#closeClickHandler);
+    }
+    if (form) {
+      form.addEventListener('submit', this.#formSubmitHandler);
+    }
   }
 
-  removeElement() {
-    this.element = null;
+  #formSubmitHandler = (evt) => {
+    evt.preventDefault();
+    this.#onFormSubmit();
+  };
+
+  #closeClickHandler = (evt) => {
+    evt.preventDefault();
+    this.#onCloseClick();
+  };
+
+  static parseEventToState(event) {
+    return event || {
+      type: EventType.FLIGHT,
+      destination: '',
+      dateFrom: '',
+      dateEnd: '',
+      basePrice: 0,
+      offers: [],
+      isFavorite: false,
+    };
   }
 }

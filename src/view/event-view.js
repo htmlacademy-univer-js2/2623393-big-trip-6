@@ -1,3 +1,4 @@
+import AbstractView from '../framework/view/abstract-view.js';
 import dayjs from 'dayjs';
 import he from 'he';
 
@@ -29,19 +30,27 @@ function formatDuration(dateFrom, dateEnd) {
   return `${minutes}M`;
 }
 
-export default class EventView {
-  constructor(event, destination, offers) {
-    this.event = event;
-    this.destination = destination;
-    this.offers = offers;
-    this.element = null;
+export default class EventView extends AbstractView {
+  #event;
+  #destination;
+  #offers;
+  #onRollupClick;
+
+  constructor(event, destination, offers, onRollupClick) {
+    super();
+    this.#event = event;
+    this.#destination = destination;
+    this.#offers = offers;
+    this.#onRollupClick = onRollupClick;
+
+    this.element.querySelector('.event__rollup-btn').addEventListener('click', this.#rollupClickHandler);
   }
 
   get template() {
-    const { type, dateFrom, dateEnd, basePrice, isFavorite } = this.event;
-    const destinationName = this.destination ? this.destination.name : '';
+    const { type, dateFrom, dateEnd, basePrice, isFavorite } = this.#event;
+    const destinationName = this.#destination ? this.#destination.name : '';
 
-    const offersHtml = this.offers.map((offer) => `
+    const offersHtml = this.#offers.map((offer) => `
       <li class="event__offer">
         <span class="event__offer-title">${he.encode(offer.title)}</span>
         &plus;&euro;&nbsp;
@@ -84,16 +93,8 @@ export default class EventView {
     `;
   }
 
-  getElement() {
-    if (!this.element) {
-      this.element = document.createElement('div');
-      this.element.innerHTML = this.template;
-      this.element = this.element.firstElementChild;
-    }
-    return this.element;
-  }
-
-  removeElement() {
-    this.element = null;
-  }
+  #rollupClickHandler = (evt) => {
+    evt.preventDefault();
+    this.#onRollupClick();
+  };
 }

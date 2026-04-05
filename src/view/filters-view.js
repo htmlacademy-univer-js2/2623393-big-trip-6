@@ -1,4 +1,6 @@
-export default class FiltersView {
+import AbstractView from '../framework/view/abstract-view.js';
+
+export default class FiltersView extends AbstractView {
   get template() {
     return `
       <form class="trip-filters" action="#" method="get">
@@ -21,14 +23,5 @@ export default class FiltersView {
         <button class="visually-hidden" type="submit">Accept filter</button>
       </form>
     `;
-  }
-
-  getElement() {
-    if (!this.element) {
-      this.element = document.createElement('div');
-      this.element.innerHTML = this.template;
-      this.element = this.element.firstElementChild;
-    }
-    return this.element;
   }
 }
