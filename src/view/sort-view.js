@@ -1,4 +1,6 @@
-export default class SortView {
+import AbstractView from '../framework/view/abstract-view.js';
+
+export default class SortView extends AbstractView {
   get template() {
     return `
       <form class="trip-events__trip-sort trip-sort" action="#" method="get">
@@ -24,14 +26,5 @@ export default class SortView {
         </div>
       </form>
     `;
-  }
-
-  getElement() {
-    if (!this.element) {
-      this.element = document.createElement('div');
-      this.element.innerHTML = this.template;
-      this.element = this.element.firstElementChild;
-    }
-    return this.element;
   }
 }
