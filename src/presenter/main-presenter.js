@@ -48,19 +48,12 @@ export default class MainPresenter {
 
   async init() {
     const filtersContainer = document.querySelector('.trip-controls__filters');
-    const eventsSection = document.querySelector('.trip-events');
 
     this.#filtersComponent = new FiltersView(
       this.#currentFilter,
       (filterType) => this.#handleFilterChange(filterType)
     );
     render(this.#filtersComponent, filtersContainer);
-
-    this.#sortComponent = new SortView(
-      this.#currentSort,
-      (sortType) => this.#handleSortChange(sortType)
-    );
-    render(this.#sortComponent, eventsSection);
 
     this.#eventsListComponent.classList.add('trip-events__list');
 
@@ -104,6 +97,16 @@ export default class MainPresenter {
     this.#clearEventsList();
 
     const events = this.#getFilteredAndSortedEvents();
+    const eventsSection = document.querySelector('.trip-events');
+
+    if (this.#sortComponent) {
+      remove(this.#sortComponent);
+    }
+    this.#sortComponent = new SortView(
+      this.#currentSort,
+      (sortType) => this.#handleSortChange(sortType)
+    );
+    render(this.#sortComponent, eventsSection, 'afterbegin');
 
     if (events.length === 0) {
       this.#showEmptyList();
@@ -207,6 +210,10 @@ export default class MainPresenter {
   }
 
   #handleSortChange(sortType) {
+    if (this.#currentSort === sortType) {
+      return;
+    }
+
     this.#currentSort = sortType;
     this.#renderEvents();
   }

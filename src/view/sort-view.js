@@ -76,9 +76,10 @@ export default class SortView extends AbstractView {
   }
 
   #sortChangeHandler = (evt) => {
-    evt.preventDefault();
-    if (evt.target.tagName === 'INPUT' && !evt.target.disabled) {
-      this.#onSortChange(evt.target.value);
+    if (evt.target.tagName !== 'INPUT' || evt.target.disabled) {
+      return;
     }
+
+    this.#onSortChange(evt.target.value);
   };
 }
