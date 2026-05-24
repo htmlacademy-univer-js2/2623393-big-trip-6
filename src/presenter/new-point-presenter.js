@@ -1,5 +1,5 @@
 import { render, remove } from '../framework/render.js';
-import NewPointView from '../view/new-point-view.js';
+import NewPointView from '../view/event-edit-view.js';
 import { EventType } from '../const.js';
 
 export default class NewPointPresenter {
@@ -36,9 +36,9 @@ export default class NewPointPresenter {
       newEvent,
       this.#eventsModel.getDestinations(),
       this.#eventsModel.getOffers(),
-      this.#handleCancel,
       this.#handleSave,
-      this.#handleCancel // Передаем шестым аргументом (onDelete)
+      this.#handleCancel,
+      this.#handleCancel
     );
 
     render(this.#newPointComponent, this.#eventListContainer, 'afterbegin');
@@ -51,7 +51,7 @@ export default class NewPointPresenter {
     }
 
     remove(this.#newPointComponent);
-    this.#newPointComponent = null; // Обязательно зануляем ссылку на компонент
+    this.#newPointComponent = null;
 
     document.removeEventListener('keydown', this.#escKeydownHandler);
   }
@@ -68,8 +68,15 @@ export default class NewPointPresenter {
     this.#onClose?.();
   };
 
-  #handleSave = (newEvent) => {
-    this.#onSave?.(newEvent);
-    this.destroy();
+  #handleSave = async (newEvent) => {
+    this.#newPointComponent.setViewState({ isSaving: true });
+    try {
+      await this.#onSave(newEvent);
+      this.destroy();
+    } catch (err) {
+      this.#newPointComponent.shake(() => {
+        this.#newPointComponent.setViewState({ isAborting: true });
+      });
+    }
   };
 }

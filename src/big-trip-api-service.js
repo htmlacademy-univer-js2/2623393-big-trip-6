@@ -3,6 +3,8 @@ import ApiService from './framework/api-service.js';
 const Method = {
   GET: 'GET',
   PUT: 'PUT',
+  POST: 'POST',
+  DELETE: 'DELETE',
 };
 
 export default class BigTripApiService extends ApiService {
@@ -33,6 +35,28 @@ export default class BigTripApiService extends ApiService {
     return parsedResponse;
   }
 
+  async addEvent(event) {
+    const adaptedEvent = this.#adaptToServer(event);
+    const response = await this._load({
+      url: 'points',
+      method: Method.POST,
+      body: JSON.stringify(adaptedEvent),
+      headers: new Headers({ 'Content-Type': 'application/json' }),
+    });
+
+    const parsedResponse = await ApiService.parseResponse(response);
+    return parsedResponse;
+  }
+
+  async deleteEvent(event) {
+    const response = await this._load({
+      url: `points/${event.id}`,
+      method: Method.DELETE,
+    });
+
+    return response;
+  }
+
   #adaptToServer(event) {
     const adaptedEvent = {
       ...event,
@@ -46,6 +70,10 @@ export default class BigTripApiService extends ApiService {
     delete adaptedEvent.dateFrom;
     delete adaptedEvent.dateEnd;
     delete adaptedEvent.isFavorite;
+
+    if (!adaptedEvent.id) {
+      delete adaptedEvent.id;
+    }
 
     return adaptedEvent;
   }

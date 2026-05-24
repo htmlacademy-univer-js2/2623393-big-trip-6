@@ -55,7 +55,6 @@ export default class EventsModel extends Observable {
     }
   }
 
-  // Обновление точки на сервере
   async updateEvent(updateType, update) {
     const index = this.#events.findIndex((event) => event.id === update.id);
     if (index === -1) {
@@ -75,6 +74,35 @@ export default class EventsModel extends Observable {
       this._notify(updateType, updatedEvent);
     } catch (err) {
       throw new Error('Can\'t update event on server');
+    }
+  }
+
+  async addEvent(updateType, update) {
+    try {
+      const response = await this.#apiService.addEvent(update);
+      const newEvent = this.#adaptToClient(response);
+      this.#events = [newEvent, ...this.#events];
+      this._notify(updateType, newEvent);
+    } catch (err) {
+      throw new Error('Can\'t add event');
+    }
+  }
+
+  async deleteEvent(updateType, update) {
+    const index = this.#events.findIndex((event) => event.id === update.id);
+    if (index === -1) {
+      throw new Error('Can\'t delete unexisting event');
+    }
+
+    try {
+      await this.#apiService.deleteEvent(update);
+      this.#events = [
+        ...this.#events.slice(0, index),
+        ...this.#events.slice(index + 1),
+      ];
+      this._notify(updateType);
+    } catch (err) {
+      throw new Error('Can\'t delete event');
     }
   }
 

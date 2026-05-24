@@ -28,7 +28,7 @@ export default class EventEditView extends AbstractStatefulView {
   }
 
   get template() {
-    const { id, type, destination, dateFrom, dateEnd, basePrice } = this._state;
+    const { id, type, destination, dateFrom, dateEnd, basePrice, isDisabled, isSaving, isDeleting } = this._state;
     const destinationData = this.#destinations.find((d) => d.id === destination);
     const currentOffers = this.#offers.find((o) => o.type === type)?.offers || [];
     const selectedOffers = this._state.offers || [];
@@ -48,6 +48,7 @@ export default class EventEditView extends AbstractStatefulView {
             name="event-offer-${offer.id}"
             ${isChecked}
             data-offer-id="${offer.id}"
+            ${isDisabled ? 'disabled' : ''}
           >
           <label class="event__offer-label" for="event-offer-${offer.id}">
             <span class="event__offer-title">${he.encode(offer.title)}</span>
@@ -69,6 +70,7 @@ export default class EventEditView extends AbstractStatefulView {
             name="event-type"
             value="${eventType}"
             ${isChecked}
+            ${isDisabled ? 'disabled' : ''}
           >
           <label class="event__type-label event__type-label--${eventType}" for="event-type-${eventType}-1">
             ${eventType.charAt(0).toUpperCase() + eventType.slice(1)}
@@ -102,6 +104,7 @@ export default class EventEditView extends AbstractStatefulView {
       : '';
 
     const resetBtnText = id ? 'Delete' : 'Cancel';
+    const computedResetBtnText = isDeleting ? 'Deleting...' : resetBtnText;
 
     return `
       <li class="trip-events__item">
@@ -112,9 +115,9 @@ export default class EventEditView extends AbstractStatefulView {
                 <span class="visually-hidden">Choose event type</span>
                 <img class="event__type-icon" width="17" height="17" src="img/icons/${type}.png" alt="Event type icon">
               </label>
-              <input class="event__type-toggle visually-hidden" id="event-type-toggle-1" type="checkbox">
+              <input class="event__type-toggle visually-hidden" id="event-type-toggle-1" type="checkbox" ${isDisabled ? 'disabled' : ''}>
               <div class="event__type-list">
-                <fieldset class="event__type-group">
+                <fieldset class="event__type-group" ${isDisabled ? 'disabled' : ''}>
                   <legend class="visually-hidden">Event type</legend>
                   ${eventTypesHtml}
                 </fieldset>
@@ -130,6 +133,7 @@ export default class EventEditView extends AbstractStatefulView {
                 value="${destinationData ? he.encode(destinationData.name) : ''}"
                 list="destination-list-1"
                 required
+                ${isDisabled ? 'disabled' : ''}
               >
               <datalist id="destination-list-1">
                 ${destinationOptions}
@@ -143,6 +147,7 @@ export default class EventEditView extends AbstractStatefulView {
                 type="text"
                 name="event-start-time"
                 value="${dateFrom}"
+                ${isDisabled ? 'disabled' : ''}
               >
               &mdash;
               <label class="visually-hidden" for="event-end-time-1">To</label>
@@ -152,6 +157,7 @@ export default class EventEditView extends AbstractStatefulView {
                 type="text"
                 name="event-end-time"
                 value="${dateEnd}"
+                ${isDisabled ? 'disabled' : ''}
               >
             </div>
             <div class="event__field-group event__field-group--price">
@@ -165,11 +171,16 @@ export default class EventEditView extends AbstractStatefulView {
                 name="event-price"
                 value="${basePrice}"
                 required
+                ${isDisabled ? 'disabled' : ''}
               >
             </div>
-            <button class="event__save-btn btn btn--blue" type="submit">Save</button>
-            <button class="event__reset-btn" type="reset">${resetBtnText}</button>
-            <button class="event__rollup-btn" type="button">
+            <button class="event__save-btn btn btn--blue" type="submit" ${isDisabled ? 'disabled' : ''}>
+              ${isSaving ? 'Saving...' : 'Save'}
+            </button>
+            <button class="event__reset-btn" type="reset" ${isDisabled ? 'disabled' : ''}>
+              ${computedResetBtnText}
+            </button>
+            <button class="event__rollup-btn" type="button" ${isDisabled ? 'disabled' : ''}>
               <span class="visually-hidden">Open event</span>
             </button>
           </header>
@@ -187,6 +198,66 @@ export default class EventEditView extends AbstractStatefulView {
         </form>
       </li>
     `;
+  }
+
+  setViewState(state) {
+    if (state.isAborting) {
+      const saveBtn = this.element.querySelector('.event__save-btn');
+      const resetBtn = this.element.querySelector('.event__reset-btn');
+
+      if (saveBtn) {
+        saveBtn.textContent = 'Save';
+      }
+
+      if (resetBtn) {
+        resetBtn.textContent = this._state.id ? 'Delete' : 'Cancel';
+      }
+
+      this.updateElement({
+        isDisabled: false,
+        isSaving: false,
+        isDeleting: false,
+      });
+      return;
+    }
+
+    this.updateElement({
+      isDisabled: true,
+      isSaving: state.isSaving || false,
+      isDeleting: state.isDeleting || false,
+    });
+  }
+
+  shake(callback) {
+    const formElement = this.element.querySelector('.event--edit');
+
+    if (!formElement) {
+      super.shake(callback);
+      return;
+    }
+
+    if (!document.getElementById('js-shake-styles')) {
+      const styleElement = document.createElement('style');
+      styleElement.id = 'js-shake-styles';
+      styleElement.textContent = `
+        @keyframes customJsShake {
+          0%, 100% { transform: translateX(0); }
+          10%, 30%, 50%, 70%, 90% { transform: translateX(-6px); }
+          20%, 40%, 60%, 80% { transform: translateX(6px); }
+        }
+        .js-shake-forced {
+          animation: customJsShake 0.6s ease-in-out !important;
+        }
+      `;
+      document.head.appendChild(styleElement);
+    }
+
+    formElement.classList.add('js-shake-forced');
+
+    setTimeout(() => {
+      formElement.classList.remove('js-shake-forced');
+      callback?.();
+    }, 600);
   }
 
   removeElement() {
@@ -250,6 +321,11 @@ export default class EventEditView extends AbstractStatefulView {
   };
 
   #setDatepicker() {
+    // Если интерфейс заблокирован, календари flatpickr инициализировать не нужно
+    if (this._state.isDisabled) {
+      return;
+    }
+
     const dateFromInput = this.element.querySelector('#event-start-time-1');
     const dateEndInput = this.element.querySelector('#event-end-time-1');
 
@@ -287,6 +363,22 @@ export default class EventEditView extends AbstractStatefulView {
 
   #formSubmitHandler = (evt) => {
     evt.preventDefault();
+
+    if (!this._state.destination) {
+      this.shake();
+      return;
+    }
+
+    if (this._state.basePrice <= 0) {
+      this.shake(); // Трясем форму
+      return;
+    }
+
+    if (!this._state.dateFrom || !this._state.dateEnd) {
+      this.shake(); // Трясем форму
+      return;
+    }
+
     this.#onFormSubmit(EventEditView.parseStateToEvent(this._state));
   };
 
@@ -344,6 +436,9 @@ export default class EventEditView extends AbstractStatefulView {
 
   #priceInputHandler = (evt) => {
     const value = evt.target.value.replace(/[^0-9]/g, '');
+
+    evt.target.setCustomValidity('');
+
     this._setState({
       basePrice: Number(value) || 0,
     });
@@ -361,10 +456,20 @@ export default class EventEditView extends AbstractStatefulView {
       offers: Array.isArray(event?.offers) ? [...event.offers] : [],
       isFavorite: event?.isFavorite || false,
       isEditMode: Boolean(event?.id),
+      isDisabled: false,
+      isSaving: false,
+      isDeleting: false,
     };
   }
 
   static parseStateToEvent(state) {
-    return { ...state };
+    const event = { ...state };
+
+    delete event.isDisabled;
+    delete event.isSaving;
+    delete event.isDeleting;
+    delete event.isEditMode;
+
+    return event;
   }
 }

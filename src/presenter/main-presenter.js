@@ -84,10 +84,18 @@ export default class MainPresenter {
         }
         break;
       case UserAction.ADD_EVENT:
-        this.#eventsModel.addEvent(updateType, update);
+        try {
+          await this.#eventsModel.addEvent(updateType, update);
+        } catch (err) {
+          throw new Error(err);
+        }
         break;
       case UserAction.DELETE_EVENT:
-        this.#eventsModel.deleteEvent(updateType, update);
+        try {
+          await this.#eventsModel.deleteEvent(updateType, update);
+        } catch (err) {
+          throw new Error(err);
+        }
         break;
     }
   };
@@ -125,7 +133,6 @@ export default class MainPresenter {
       onSave: (newEvent) => {
         const eventWithId = {
           ...newEvent,
-          id: crypto.randomUUID() // Либо используйте nanoid(), если она установлена в проекте
         };
         this.#handleUserAction(UserAction.ADD_EVENT, eventWithId);
         this.#hideNewPointForm();

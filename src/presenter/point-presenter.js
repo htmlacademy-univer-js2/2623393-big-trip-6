@@ -92,7 +92,7 @@ export default class PointPresenter {
 
   #replaceFormToPoint() {
     replace(this.#pointComponent, this.#pointEditComponent);
-    document.removeEventListener('keydown', this.#escKeydownHandler);
+    document.removeEventListener('removeEventListener', this.#escKeydownHandler);
     this.#mode = Mode.DEFAULT;
   }
 
@@ -111,19 +111,39 @@ export default class PointPresenter {
     this.#replaceFormToPoint();
   };
 
-  #handleFavoriteClick = () => {
-    this.#handleDataChange?.(
-      UserAction.UPDATE_EVENT,
-      { ...this.#event, isFavorite: !this.#event.isFavorite }
-    );
+  #handleFavoriteClick = async () => {
+    try {
+      await this.#handleDataChange?.(
+        UserAction.UPDATE_EVENT,
+        { ...this.#event, isFavorite: !this.#event.isFavorite }
+      );
+    } catch (err) {
+      this.#pointComponent.shake();
+    }
   };
 
-  #handleFormSubmit = (updatedEvent) => {
-    this.#handleDataChange?.(UserAction.UPDATE_EVENT, updatedEvent);
-    this.#replaceFormToPoint();
+  #handleFormSubmit = async (updatedEvent) => {
+    this.#pointEditComponent.setViewState({ isSaving: true });
+
+    try {
+      await this.#handleDataChange?.(UserAction.UPDATE_EVENT, updatedEvent);
+      this.#replaceFormToPoint();
+    } catch (err) {
+      this.#pointEditComponent.shake(() => {
+        this.#pointEditComponent.setViewState({ isAborting: true });
+      });
+    }
   };
 
-  #handleDeleteClick = (deletedEvent) => {
-    this.#handleDataChange?.(UserAction.DELETE_EVENT, deletedEvent);
+  #handleDeleteClick = async (deletedEvent) => {
+    this.#pointEditComponent.setViewState({ isDeleting: true });
+
+    try {
+      await this.#handleDataChange?.(UserAction.DELETE_EVENT, deletedEvent);
+    } catch (err) {
+      this.#pointEditComponent.shake(() => {
+        this.#pointEditComponent.setViewState({ isAborting: true });
+      });
+    }
   };
 }
