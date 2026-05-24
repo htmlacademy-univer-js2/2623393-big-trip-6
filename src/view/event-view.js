@@ -1,34 +1,9 @@
 import AbstractView from '../framework/view/abstract-view.js';
+import { humanizePointDate, humanizePointTime, getPointDuration } from '../utils/date.js';
 import dayjs from 'dayjs';
 import he from 'he';
 
-const DATE_FORMAT = 'MMM DD';
-const TIME_FORMAT = 'HH:mm';
 const DATETIME_FORMAT = 'YYYY-MM-DDTHH:mm';
-
-function formatDuration(dateFrom, dateEnd) {
-  const start = new Date(dateFrom);
-  const end = new Date(dateEnd);
-  const diffMs = end - start;
-
-  const totalSeconds = Math.floor(diffMs / 1000);
-  const totalMinutes = Math.floor(totalSeconds / 60);
-  const totalHours = Math.floor(totalMinutes / 60);
-  const days = Math.floor(totalHours / 24);
-
-  const hours = totalHours % 24;
-  const minutes = totalMinutes % 60;
-
-  const pad = (num) => String(num).padStart(2, '0');
-
-  if (days > 0) {
-    return `${pad(days)}D ${pad(hours)}H ${pad(minutes)}M`;
-  }
-  if (hours > 0) {
-    return `${pad(hours)}H ${pad(minutes)}M`;
-  }
-  return `${minutes}M`;
-}
 
 export default class EventView extends AbstractView {
   #event;
@@ -47,7 +22,6 @@ export default class EventView extends AbstractView {
 
     this.element.querySelector('.event__rollup-btn').addEventListener('click', this.#rollupClickHandler);
 
-    // Навешиваем слушатель клика на кнопку добавления в избранное
     this.element.querySelector('.event__favorite-btn').addEventListener('click', this.#favoriteClickHandler);
   }
 
@@ -65,18 +39,18 @@ export default class EventView extends AbstractView {
 
     return `
       <div class="event">
-        <time class="event__date" datetime="${dayjs(dateFrom).format('YYYY-MM-DD')}">${dayjs(dateFrom).format(DATE_FORMAT)}</time>
+        <time class="event__date" datetime="${dayjs(dateFrom).format('YYYY-MM-DD')}">${humanizePointDate(dateFrom)}</time>
         <div class="event__type">
           <img class="event__type-icon" width="42" height="42" src="img/icons/${type}.png" alt="Event type icon">
         </div>
         <h3 class="event__title">${he.encode(type)} ${he.encode(destinationName)}</h3>
         <div class="event__schedule">
           <p class="event__time">
-            <time class="event__start-time" datetime="${dayjs(dateFrom).format(DATETIME_FORMAT)}">${dayjs(dateFrom).format(TIME_FORMAT)}</time>
+            <time class="event__start-time" datetime="${dayjs(dateFrom).format(DATETIME_FORMAT)}">${humanizePointTime(dateFrom)}</time>
             &mdash;
-            <time class="event__end-time" datetime="${dayjs(dateEnd).format(DATETIME_FORMAT)}">${dayjs(dateEnd).format(TIME_FORMAT)}</time>
+            <time class="event__end-time" datetime="${dayjs(dateEnd).format(DATETIME_FORMAT)}">${humanizePointTime(dateEnd)}</time>
           </p>
-          <p class="event__duration">${formatDuration(dateFrom, dateEnd)}</p>
+          <p class="event__duration">${getPointDuration(dateFrom, dateEnd)}</p>
         </div>
         <p class="event__price">
           &euro;&nbsp;<span class="event__price-value">${basePrice}</span>

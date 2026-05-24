@@ -1,6 +1,8 @@
 import AbstractStatefulView from '../framework/view/abstract-stateful-view.js';
 import he from 'he';
 import { EventType } from '../const.js';
+import flatpickr from 'flatpickr';
+import 'flatpickr/dist/flatpickr.min.css';
 
 const EVENT_TYPES = Object.values(EventType);
 
@@ -10,6 +12,8 @@ export default class EventEditView extends AbstractStatefulView {
   #onFormSubmit;
   #onCloseClick;
   #onDeleteClick;
+  #datepickerFrom = null;
+  #datepickerTo = null;
 
   constructor(event, destinations, offers, onFormSubmit, onCloseClick, onDeleteClick) {
     super();
@@ -54,7 +58,6 @@ export default class EventEditView extends AbstractStatefulView {
       `;
     }).join('');
 
-    // Выносим генерацию радиокнопок типов точек маршрута
     const eventTypesHtml = EVENT_TYPES.map((eventType) => {
       const isChecked = type === eventType ? 'checked' : '';
       return `
@@ -74,7 +77,6 @@ export default class EventEditView extends AbstractStatefulView {
       `;
     }).join('');
 
-    // Выносим блок с фотографиями отдельно
     let picturesHtml = '';
     if (destinationData && destinationData.pictures && destinationData.pictures.length > 0) {
       const picturesList = destinationData.pictures.map((pic) =>
@@ -90,7 +92,6 @@ export default class EventEditView extends AbstractStatefulView {
       `;
     }
 
-    // Выносим блок пункта назначения
     const destinationHtml = destinationData && (destinationData.description || picturesHtml)
       ? `
         <section class="event__section event__section--destination">
@@ -182,6 +183,20 @@ export default class EventEditView extends AbstractStatefulView {
     `;
   }
 
+  removeElement() {
+    super.removeElement();
+
+    if (this.#datepickerFrom) {
+      this.#datepickerFrom.destroy();
+      this.#datepickerFrom = null;
+    }
+
+    if (this.#datepickerTo) {
+      this.#datepickerTo.destroy();
+      this.#datepickerTo = null;
+    }
+  }
+
   _restoreHandlers() {
     const rollupBtn = this.element.querySelector('.event__rollup-btn');
     const resetBtn = this.element.querySelector('.event__reset-btn');
@@ -212,6 +227,47 @@ export default class EventEditView extends AbstractStatefulView {
     if (priceInput) {
       priceInput.addEventListener('input', this.#priceInputHandler);
     }
+
+    this.#setDatepicker();
+  }
+
+  #dateFromChangeHandler = ([userDate]) => {
+    this._setState({
+      dateFrom: userDate ? userDate.toISOString() : '',
+    });
+  };
+
+  #dateEndChangeHandler = ([userDate]) => {
+    this._setState({
+      dateEnd: userDate ? userDate.toISOString() : '',
+    });
+  };
+
+  #setDatepicker() {
+    const dateFromInput = this.element.querySelector('#event-start-time-1');
+    const dateEndInput = this.element.querySelector('#event-end-time-1');
+
+    this.#datepickerFrom = flatpickr(
+      dateFromInput,
+      {
+        dateFormat: 'd/m/y H:i',
+        enableTime: true,
+        defaultDate: this._state.dateFrom,
+        onChange: this.#dateFromChangeHandler,
+        'time_24hr': true,
+      },
+    );
+
+    this.#datepickerTo = flatpickr(
+      dateEndInput,
+      {
+        dateFormat: 'd/m/y H:i',
+        enableTime: true,
+        defaultDate: this._state.dateEnd,
+        onChange: this.#dateEndChangeHandler,
+        'time_24hr': true,
+      },
+    );
   }
 
   #formSubmitHandler = (evt) => {
