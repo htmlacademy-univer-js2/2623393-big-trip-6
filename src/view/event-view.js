@@ -35,15 +35,20 @@ export default class EventView extends AbstractView {
   #destination;
   #offers;
   #onRollupClick;
+  #onFavoriteClick;
 
-  constructor(event, destination, offers, onRollupClick) {
+  constructor({ event, destination, offers, onRollupClick, onFavoriteClick }) {
     super();
     this.#event = event;
     this.#destination = destination;
     this.#offers = offers;
     this.#onRollupClick = onRollupClick;
+    this.#onFavoriteClick = onFavoriteClick;
 
     this.element.querySelector('.event__rollup-btn').addEventListener('click', this.#rollupClickHandler);
+
+    // Навешиваем слушатель клика на кнопку добавления в избранное
+    this.element.querySelector('.event__favorite-btn').addEventListener('click', this.#favoriteClickHandler);
   }
 
   get template() {
@@ -96,5 +101,10 @@ export default class EventView extends AbstractView {
   #rollupClickHandler = (evt) => {
     evt.preventDefault();
     this.#onRollupClick();
+  };
+
+  #favoriteClickHandler = (evt) => {
+    evt.preventDefault();
+    this.#onFavoriteClick();
   };
 }

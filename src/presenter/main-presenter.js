@@ -1,19 +1,18 @@
-import { render, replace, remove } from '../framework/render.js';
+import { render, remove } from '../framework/render.js';
 import FiltersView from '../view/filters-view.js';
 import SortView from '../view/sort-view.js';
-import EventEditView from '../view/event-edit-view.js';
-import EventView from '../view/event-view.js';
 import EmptyListView from '../view/empty-list-view.js';
 import LoadingView from '../view/loading-view.js';
 import ErrorView from '../view/error-view.js';
 import EventsModel from '../model/events-model.js';
+import PointPresenter from './point-presenter.js';
 import { FilterType, SortType } from '../const.js';
 
 export default class MainPresenter {
   #eventsModel = new EventsModel();
   #eventsListComponent = document.createElement('ul');
-  #eventComponents = new Map();
-  #currentEditComponent = null;
+
+  #pointPresenters = new Map();
 
   #filtersComponent = null;
   #sortComponent = null;
@@ -26,18 +25,37 @@ export default class MainPresenter {
   #isLoading = true;
   #isError = false;
 
+  #handlePointChange = (updatedPoint) => {
+    this.#eventsModel.updateEvent(updatedPoint);
+    this.#pointPresenters.get(updatedPoint.id).init(updatedPoint);
+  };
+
+  #handleModeChange = () => {
+    this.#pointPresenters.forEach((presenter) => presenter.resetView());
+  };
+
+  #renderPoint(event) {
+    const pointPresenter = new PointPresenter({
+      eventListContainer: this.#eventsListComponent,
+      eventsModel: this.#eventsModel,
+      onDataChange: this.#handlePointChange,
+      onModeChange: this.#handleModeChange
+    });
+
+    pointPresenter.init(event);
+    this.#pointPresenters.set(event.id, pointPresenter);
+  }
+
   async init() {
     const filtersContainer = document.querySelector('.trip-controls__filters');
     const eventsSection = document.querySelector('.trip-events');
 
-    // Инициализация фильтров
     this.#filtersComponent = new FiltersView(
       this.#currentFilter,
       (filterType) => this.#handleFilterChange(filterType)
     );
     render(this.#filtersComponent, filtersContainer);
 
-    // Инициализация сортировки
     this.#sortComponent = new SortView(
       this.#currentSort,
       (sortType) => this.#handleSortChange(sortType)
@@ -46,12 +64,9 @@ export default class MainPresenter {
 
     this.#eventsListComponent.classList.add('trip-events__list');
 
-    // Показываем загрузку
     this.#showLoading();
 
     try {
-      // Здесь будет запрос к серверу
-      // await this.#eventsModel.loadEvents();
       this.#isLoading = false;
       this.#isError = false;
       this.#renderEvents();
@@ -74,8 +89,6 @@ export default class MainPresenter {
     this.#errorComponent = new ErrorView();
     render(this.#errorComponent, this.#eventsListComponent);
     document.querySelector('.trip-events').append(this.#eventsListComponent);
-
-    // Блокируем все фильтры
     this.#updateFiltersAvailability();
   }
 
@@ -84,7 +97,6 @@ export default class MainPresenter {
     this.#emptyListComponent = new EmptyListView(this.#currentFilter);
     render(this.#emptyListComponent, this.#eventsListComponent);
     document.querySelector('.trip-events').append(this.#eventsListComponent);
-
     this.#updateFiltersAvailability();
   }
 
@@ -101,9 +113,7 @@ export default class MainPresenter {
     document.querySelector('.trip-events').append(this.#eventsListComponent);
 
     events.forEach((event) => {
-      const eventView = this.#createEventView(event);
-      render(eventView, this.#eventsListComponent);
-      this.#eventComponents.set(event.id, eventView);
+      this.#renderPoint(event);
     });
 
     this.#updateFiltersAvailability();
@@ -111,13 +121,8 @@ export default class MainPresenter {
 
   #getFilteredAndSortedEvents() {
     let events = this.#eventsModel.getEvents();
-
-    // Применяем фильтр
     events = this.#filterEvents(events);
-
-    // Применяем сортировку
     events = this.#sortEvents(events);
-
     return events;
   }
 
@@ -175,10 +180,8 @@ export default class MainPresenter {
   }
 
   #clearEventsList() {
-    this.#eventComponents.forEach((component) => {
-      remove(component);
-    });
-    this.#eventComponents.clear();
+    this.#pointPresenters.forEach((presenter) => presenter.destroy());
+    this.#pointPresenters.clear();
 
     if (this.#emptyListComponent) {
       remove(this.#emptyListComponent);
@@ -194,84 +197,17 @@ export default class MainPresenter {
       remove(this.#errorComponent);
       this.#errorComponent = null;
     }
-
-    if (this.#currentEditComponent) {
-      remove(this.#currentEditComponent.view);
-      this.#currentEditComponent = null;
-    }
-  }
-
-  #createEventView(event) {
-    const destination = this.#eventsModel.getDestinationById(event.destination);
-    const eventOffers = event.offers
-      .map((id) => this.#eventsModel.getOfferById(event.type, id))
-      .filter(Boolean);
-
-    return new EventView(
-      event,
-      destination,
-      eventOffers,
-      () => this.#handleRollupClick(event)
-    );
   }
 
   #handleFilterChange(filterType) {
     this.#currentFilter = filterType;
     this.#filtersComponent.updateFilter(filterType);
-    this.#currentSort = SortType.DAY; // Сбрасываем сортировку
+    this.#currentSort = SortType.DAY;
     this.#renderEvents();
   }
 
   #handleSortChange(sortType) {
     this.#currentSort = sortType;
     this.#renderEvents();
-  }
-
-  #handleRollupClick(event) {
-    if (this.#currentEditComponent) {
-      this.#closeForm();
-    }
-
-    const eventView = this.#eventComponents.get(event.id);
-    const editView = new EventEditView(
-      event,
-      this.#eventsModel.getDestinations(),
-      this.#eventsModel.getOffers(),
-      () => this.#handleFormSubmit(event, editView),
-      () => this.#closeForm(),
-      () => this.#handleDelete(event, editView)
-    );
-
-    replace(editView, eventView);
-    this.#currentEditComponent = { view: editView, originalEventView: eventView };
-    document.addEventListener('keydown', this.#escKeydownHandler);
-  }
-
-  #closeForm() {
-    if (!this.#currentEditComponent) {
-      return;
-    }
-
-    const { view: editView, originalEventView: eventView } = this.#currentEditComponent;
-    replace(eventView, editView);
-    this.#currentEditComponent = null;
-    document.removeEventListener('keydown', this.#escKeydownHandler);
-  }
-
-  #escKeydownHandler = (evt) => {
-    if (evt.key === 'Escape' || evt.key === 'Esc') {
-      evt.preventDefault();
-      this.#closeForm();
-    }
-  };
-
-  #handleFormSubmit() {
-    // TODO: логика сохранения
-    this.#closeForm();
-  }
-
-  #handleDelete() {
-    // TODO: логика удаления
-    this.#closeForm();
   }
 }
