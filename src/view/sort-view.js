@@ -10,7 +10,7 @@ export default class SortView extends AbstractView {
     this.#currentSort = currentSort;
     this.#onSortChange = onSortChange;
 
-    this.element.addEventListener('change', this.#sortChangeHandler);
+    this.element.addEventListener('click', this.#sortChangeHandler);
   }
 
   get template() {
@@ -76,10 +76,34 @@ export default class SortView extends AbstractView {
   }
 
   #sortChangeHandler = (evt) => {
-    if (evt.target.tagName !== 'INPUT' || evt.target.disabled) {
+    const target = evt.target;
+    const isInput = target.tagName === 'INPUT' && !target.disabled;
+    const isLabel = target.tagName === 'LABEL' && target.classList.contains('trip-sort__btn');
+
+    if (!isInput && !isLabel) {
       return;
     }
 
-    this.#onSortChange(evt.target.value);
+    evt.preventDefault();
+
+    const input = isLabel
+      ? this.element.querySelector(`#${target.getAttribute('for')}`)
+      : target;
+
+    if (input && !input.disabled && this.#onSortChange) {
+      this.#onSortChange(input.value);
+    }
   };
+
+  updateElement({ currentSortType }) {
+    if (!currentSortType) {
+      return;
+    }
+    this.#currentSort = currentSortType;
+
+    const inputs = this.element.querySelectorAll('.trip-sort__input');
+    inputs.forEach((input) => {
+      input.checked = input.value === currentSortType;
+    });
+  }
 }

@@ -1,6 +1,7 @@
 import { render, replace, remove } from '../framework/render.js';
 import EventView from '../view/event-view.js';
 import EventEditView from '../view/event-edit-view.js';
+import { UserAction } from '../const.js';
 
 const Mode = {
   DEFAULT: 'DEFAULT',
@@ -51,7 +52,7 @@ export default class PointPresenter {
       this.#eventsModel.getOffers(),
       this.#handleFormSubmit,
       this.#handleRollupClick,
-      this.#handleDelete
+      this.#handleDeleteClick,
     );
 
     if (prevPointComponent === null || prevPointEditComponent === null) {
@@ -85,7 +86,7 @@ export default class PointPresenter {
   #replacePointToForm() {
     replace(this.#pointEditComponent, this.#pointComponent);
     document.addEventListener('keydown', this.#escKeydownHandler);
-    this.#handleModeChange();
+    this.#handleModeChange?.();
     this.#mode = Mode.EDITING;
   }
 
@@ -111,17 +112,18 @@ export default class PointPresenter {
   };
 
   #handleFavoriteClick = () => {
-    this.#handleDataChange({
-      ...this.#event,
-      isFavorite: !this.#event.isFavorite
-    });
+    this.#handleDataChange?.(
+      UserAction.UPDATE_EVENT,
+      { ...this.#event, isFavorite: !this.#event.isFavorite }
+    );
   };
 
-  #handleFormSubmit = () => {
+  #handleFormSubmit = (updatedEvent) => {
+    this.#handleDataChange?.(UserAction.UPDATE_EVENT, updatedEvent);
     this.#replaceFormToPoint();
   };
 
-  #handleDelete = () => {
-    this.#replaceFormToPoint();
+  #handleDeleteClick = (deletedEvent) => {
+    this.#handleDataChange?.(UserAction.DELETE_EVENT, deletedEvent);
   };
 }

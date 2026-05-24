@@ -1,40 +1,57 @@
 import AbstractStatefulView from '../framework/view/abstract-stateful-view.js';
-import he from 'he';
 import { EventType } from '../const.js';
 import flatpickr from 'flatpickr';
 import 'flatpickr/dist/flatpickr.min.css';
 
 const EVENT_TYPES = Object.values(EventType);
 
-export default class EventEditView extends AbstractStatefulView {
+const escapeHtml = (str) => {
+  if (!str) {
+    return '';
+  }
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+};
+
+export default class NewPointView extends AbstractStatefulView {
   #destinations;
   #offers;
-  #onFormSubmit;
-  #onCloseClick;
-  #onDeleteClick;
+  #onCancel;
+  #onSave;
+  #onDelete;
   #datepickerFrom = null;
   #datepickerTo = null;
 
-  constructor(event, destinations, offers, onFormSubmit, onCloseClick, onDeleteClick) {
+  constructor(event, destinations, offers, onCancel, onSave, onDelete = null) {
     super();
-    this.#destinations = destinations;
-    this.#offers = offers;
-    this.#onFormSubmit = onFormSubmit;
-    this.#onCloseClick = onCloseClick;
-    this.#onDeleteClick = onDeleteClick;
+    this.#destinations = Array.isArray(destinations) ? destinations : [];
+    this.#offers = Array.isArray(offers) ? offers : [];
+    this.#onCancel = onCancel;
+    this.#onSave = onSave;
+    this.#onDelete = onDelete;
 
-    this._setState(EventEditView.parseEventToState(event));
+    const initialState = NewPointView.parseEventToState(event);
+    this._setState(initialState);
     this._restoreHandlers();
   }
 
   get template() {
-    const { id, type, destination, dateFrom, dateEnd, basePrice } = this._state;
-    const destinationData = this.#destinations.find((d) => d.id === destination);
-    const currentOffers = this.#offers.find((o) => o.type === type)?.offers || [];
-    const selectedOffers = this._state.offers || [];
+    const { type, dateFrom, dateEnd, basePrice, destination, isEditMode } = this._state;
 
-    const destinationOptions = this.#destinations.map((d) =>
-      `<option value="${he.encode(d.name)}"></option>`
+    const currentDestination = this.#destinations.find((d) => d.id === destination);
+    const destinationName = currentDestination ? currentDestination.name : '';
+
+    const offersList = Array.isArray(this.#offers) ? this.#offers : [];
+    const currentOffers = offersList.find((o) => o.type === type)?.offers || [];
+    const selectedOffers = Array.isArray(this._state.offers) ? this._state.offers : [];
+
+    const destinationsList = Array.isArray(this.#destinations) ? this.#destinations : [];
+    const destinationOptions = destinationsList.map((d) =>
+      `<option value="${escapeHtml(d.name)}"></option>`
     ).join('');
 
     const offersHtml = currentOffers.map((offer) => {
@@ -50,7 +67,7 @@ export default class EventEditView extends AbstractStatefulView {
             data-offer-id="${offer.id}"
           >
           <label class="event__offer-label" for="event-offer-${offer.id}">
-            <span class="event__offer-title">${he.encode(offer.title)}</span>
+            <span class="event__offer-title">${escapeHtml(offer.title)}</span>
             &plus;&euro;&nbsp;
             <span class="event__offer-price">${offer.price}</span>
           </label>
@@ -77,31 +94,27 @@ export default class EventEditView extends AbstractStatefulView {
       `;
     }).join('');
 
-    let picturesHtml = '';
-    if (destinationData && destinationData.pictures && destinationData.pictures.length > 0) {
-      const picturesList = destinationData.pictures.map((pic) =>
-        `<img class="event__photo" src="${he.encode(pic.src)}" alt="${he.encode(pic.description)}">`
-      ).join('');
+    let destinationSectionHtml = '';
+    if (currentDestination && (currentDestination.description || currentDestination.pictures?.length > 0)) {
+      const picturesHtml = currentDestination.pictures?.map((pic) =>
+        `<img class="event__photo" src="${pic.src}" alt="${escapeHtml(pic.description)}">`
+      ).join('') || '';
 
-      picturesHtml = `
-        <div class="event__photos-container">
-          <div class="event__photos-tape">
-            ${picturesList}
-          </div>
-        </div>
+      destinationSectionHtml = `
+        <section class="event__section  event__section--destination">
+          <h3 class="event__section-title  event__section-title--destination">Destination</h3>
+          ${currentDestination.description ? `<p class="event__destination-description">${escapeHtml(currentDestination.description)}</p>` : ''}
+          ${currentDestination.pictures?.length > 0 ? `
+            <div class="event__photos-container">
+              <div class="event__photos-tape">
+                ${picturesHtml}
+              </div>
+            </div>` : ''}
+        </section>
       `;
     }
 
-    const destinationHtml = destinationData && (destinationData.description || picturesHtml)
-      ? `
-        <section class="event__section event__section--destination">
-          <h3 class="event__section-title event__section-title--destination">Destination</h3>
-          <p class="event__destination-description">${he.encode(destinationData.description || '')}</p>
-          ${picturesHtml}
-        </section>`
-      : '';
-
-    const resetBtnText = id ? 'Delete' : 'Cancel';
+    const resetBtnText = isEditMode ? 'Delete' : 'Cancel';
 
     return `
       <li class="trip-events__item">
@@ -127,7 +140,7 @@ export default class EventEditView extends AbstractStatefulView {
                 id="event-destination-1"
                 type="text"
                 name="event-destination"
-                value="${destinationData ? he.encode(destinationData.name) : ''}"
+                value="${escapeHtml(destinationName)}"
                 list="destination-list-1"
                 required
               >
@@ -169,20 +182,20 @@ export default class EventEditView extends AbstractStatefulView {
             </div>
             <button class="event__save-btn btn btn--blue" type="submit">Save</button>
             <button class="event__reset-btn" type="reset">${resetBtnText}</button>
-            <button class="event__rollup-btn" type="button">
-              <span class="visually-hidden">Open event</span>
-            </button>
+            ${isEditMode ? `
+              <button class="event__rollup-btn" type="button">
+                <span class="visually-hidden">Open event</span>
+              </button>` : ''}
           </header>
           <section class="event__details">
-            ${currentOffers.length > 0
-    ? `
+            ${currentOffers.length > 0 ? `
               <section class="event__section event__section--offers">
                 <h3 class="event__section-title event__section-title--offers">Offers</h3>
                 <div class="event__available-offers">
                   ${offersHtml}
                 </div>
               </section>` : ''}
-            ${destinationHtml}
+            ${destinationSectionHtml}
           </section>
         </form>
       </li>
@@ -191,12 +204,14 @@ export default class EventEditView extends AbstractStatefulView {
 
   removeElement() {
     super.removeElement();
+    this.#destroyDatepickers();
+  }
 
+  #destroyDatepickers() {
     if (this.#datepickerFrom) {
       this.#datepickerFrom.destroy();
       this.#datepickerFrom = null;
     }
-
     if (this.#datepickerTo) {
       this.#datepickerTo.destroy();
       this.#datepickerTo = null;
@@ -204,22 +219,16 @@ export default class EventEditView extends AbstractStatefulView {
   }
 
   _restoreHandlers() {
-    const rollupBtn = this.element.querySelector('.event__rollup-btn');
-    const resetBtn = this.element.querySelector('.event__reset-btn');
     const form = this.element.querySelector('form');
+    const resetBtn = this.element.querySelector('.event__reset-btn');
+    const rollupBtn = this.element.querySelector('.event__rollup-btn');
     const typeGroup = this.element.querySelector('.event__type-group');
     const destinationInput = this.element.querySelector('.event__input--destination');
     const offersContainer = this.element.querySelector('.event__available-offers');
     const priceInput = this.element.querySelector('.event__input--price');
 
-    if (rollupBtn) {
-      rollupBtn.addEventListener('click', this.#closeClickHandler);
-    }
-    if (resetBtn) {
-      resetBtn.addEventListener('click', this.#resetClickHandler);
-    }
     if (form) {
-      form.addEventListener('submit', this.#formSubmitHandler);
+      form.addEventListener('submit', this.#saveClickHandler);
     }
     if (typeGroup) {
       typeGroup.addEventListener('change', this.#typeChangeHandler);
@@ -233,92 +242,67 @@ export default class EventEditView extends AbstractStatefulView {
     if (priceInput) {
       priceInput.addEventListener('input', this.#priceInputHandler);
     }
+    if (rollupBtn) {
+      rollupBtn.addEventListener('click', this.#closeClickHandler);
+    }
+
+    if (resetBtn) {
+      if (this._state.isEditMode) {
+        resetBtn.addEventListener('click', this.#deleteClickHandler);
+      } else {
+        resetBtn.addEventListener('click', this.#resetClickHandler);
+      }
+    }
 
     this.#setDatepicker();
   }
 
-  #dateFromChangeHandler = ([userDate]) => {
-    this._setState({
-      dateFrom: userDate ? userDate.toISOString() : '',
-    });
-  };
-
-  #dateEndChangeHandler = ([userDate]) => {
-    this._setState({
-      dateEnd: userDate ? userDate.toISOString() : '',
-    });
-  };
-
-  #setDatepicker() {
-    const dateFromInput = this.element.querySelector('#event-start-time-1');
-    const dateEndInput = this.element.querySelector('#event-end-time-1');
-
-    if (this.#datepickerFrom) {
-      this.#datepickerFrom.destroy();
-    }
-    if (this.#datepickerTo) {
-      this.#datepickerTo.destroy();
-    }
-
-    this.#datepickerFrom = flatpickr(
-      dateFromInput,
-      {
-        dateFormat: 'd/m/y H:i',
-        enableTime: true,
-        defaultDate: this._state.dateFrom,
-        onChange: this.#dateFromChangeHandler,
-        ['time_24hr']: true,
-        maxDate: this._state.dateEnd || undefined,
-      },
-    );
-
-    this.#datepickerTo = flatpickr(
-      dateEndInput,
-      {
-        dateFormat: 'd/m/y H:i',
-        enableTime: true,
-        defaultDate: this._state.dateEnd,
-        onChange: this.#dateEndChangeHandler,
-        ['time_24hr']: true,
-        minDate: this._state.dateFrom || undefined,
-      },
-    );
-  }
-
-  #formSubmitHandler = (evt) => {
+  #saveClickHandler = (evt) => {
     evt.preventDefault();
-    this.#onFormSubmit(EventEditView.parseStateToEvent(this._state));
+    const input = this.element.querySelector('.event__input--destination');
+    const currentDestination = this.#destinations.find((d) => d.name === input.value);
+
+    if (!currentDestination) {
+      input.setCustomValidity('Пожалуйста, выберите город из предложенного списка');
+      input.reportValidity();
+      return;
+    }
+
+    this.#onSave(NewPointView.parseStateToEvent(this._state));
   };
 
   #closeClickHandler = (evt) => {
     evt.preventDefault();
-    this.#onCloseClick();
+    this.#onCancel();
   };
 
   #resetClickHandler = (evt) => {
     evt.preventDefault();
-    if (this._state.id) {
-      this.#onDeleteClick(EventEditView.parseStateToEvent(this._state));
-    } else {
-      this.#onCloseClick();
-    }
+    this.#onCancel();
+  };
+
+  #deleteClickHandler = (evt) => {
+    evt.preventDefault();
+    this.#onDelete?.(NewPointView.parseStateToEvent(this._state));
   };
 
   #typeChangeHandler = (evt) => {
     evt.preventDefault();
-    this.updateElement({
-      type: evt.target.value,
-      offers: [],
-    });
+    this.updateElement({ type: evt.target.value, offers: [] });
   };
 
   #destinationChangeHandler = (evt) => {
     evt.preventDefault();
     const currentDestination = this.#destinations.find((d) => d.name === evt.target.value);
 
-    this.updateElement({
-      destination: currentDestination ? currentDestination.id : '',
-    });
+    if (currentDestination) {
+      evt.target.setCustomValidity('');
+      this.updateElement({ destination: currentDestination.id });
+    } else {
+      evt.target.setCustomValidity('Выберите город из списка');
+      evt.target.reportValidity();
+      this.updateElement({ destination: '' });
+    }
   };
 
   #offerChangeHandler = (evt) => {
@@ -326,45 +310,97 @@ export default class EventEditView extends AbstractStatefulView {
       return;
     }
     evt.preventDefault();
-
     const offerId = evt.target.dataset.offerId;
-    const currentOffers = [...this._state.offers];
-    const index = currentOffers.indexOf(offerId);
-
-    if (index === -1) {
-      currentOffers.push(offerId);
+    const updatedOffers = [...(this._state.offers || [])];
+    const idx = updatedOffers.indexOf(offerId);
+    if (idx === -1) {
+      updatedOffers.push(offerId);
     } else {
-      currentOffers.splice(index, 1);
+      updatedOffers.splice(idx, 1);
     }
-
-    this._setState({
-      offers: currentOffers,
-    });
+    this._setState({ offers: updatedOffers });
   };
 
   #priceInputHandler = (evt) => {
-    const value = evt.target.value.replace(/[^0-9]/g, '');
-    this._setState({
-      basePrice: Number(value) || 0,
-    });
-    evt.target.value = value;
+    const val = evt.target.value.replace(/[^0-9]/g, '');
+    this._setState({ basePrice: Number(val) || 0 });
+    evt.target.value = val;
   };
+
+  #dateFromChangeHandler = ([userDate]) => {
+    const dateString = userDate ? userDate.toISOString() : '';
+    this._setState({ dateFrom: dateString });
+
+    if (this.#datepickerTo) {
+      this.#datepickerTo.set('minDate', userDate || undefined);
+    }
+  };
+
+  #dateEndChangeHandler = ([userDate]) => {
+    const dateString = userDate ? userDate.toISOString() : '';
+    this._setState({ dateEnd: dateString });
+
+    if (this.#datepickerFrom) {
+      this.#datepickerFrom.set('maxDate', userDate || undefined);
+    }
+  };
+
+  #setDatepicker() {
+    const dateFromInput = this.element.querySelector('#event-start-time-1');
+    const dateEndInput = this.element.querySelector('#event-end-time-1');
+
+    this.#destroyDatepickers();
+
+    if (dateFromInput) {
+      this.#datepickerFrom = flatpickr(dateFromInput, {
+        dateFormat: 'd/m/y H:i',
+        enableTime: true,
+        defaultDate: this._state.dateFrom || undefined,
+        onChange: this.#dateFromChangeHandler,
+        ['time_24hr']: true,
+        maxDate: this._state.dateEnd || undefined,
+      });
+    }
+
+    if (dateEndInput) {
+      this.#datepickerTo = flatpickr(dateEndInput, {
+        dateFormat: 'd/m/y H:i',
+        enableTime: true,
+        defaultDate: this._state.dateEnd || undefined,
+        onChange: this.#dateEndChangeHandler,
+        ['time_24hr']: true,
+        minDate: this._state.dateFrom || undefined,
+      });
+    }
+  }
 
   static parseEventToState(event) {
     return {
       id: event?.id || '',
-      type: event?.type || 'flight',
+      type: event?.type || EventType.FLIGHT,
       destination: event?.destination || '',
       dateFrom: event?.dateFrom || '',
       dateEnd: event?.dateEnd || '',
       basePrice: event?.basePrice || 0,
       offers: Array.isArray(event?.offers) ? [...event.offers] : [],
       isFavorite: event?.isFavorite || false,
-      isEditMode: Boolean(event?.id),
+      isEditMode: event?.id && event.id !== '',
     };
   }
 
   static parseStateToEvent(state) {
-    return { ...state };
+    const event = {
+      id: state.id,
+      type: state.type,
+      destination: state.destination,
+      dateFrom: state.dateFrom,
+      dateEnd: state.dateEnd,
+      basePrice: state.basePrice,
+      offers: state.offers,
+      isFavorite: state.isFavorite,
+    };
+
+    delete event.isEditMode;
+    return event;
   }
 }
