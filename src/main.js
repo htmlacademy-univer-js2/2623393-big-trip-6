@@ -1,6 +1,20 @@
 import MainPresenter from './presenter/main-presenter.js';
+import EventsModel from './model/events-model.js';
+import FilterModel from './model/filter-model.js';
+import BigTripApiService from './big-trip-api-service.js';
 
-document.addEventListener('DOMContentLoaded', () => {
-  const mainPresenter = new MainPresenter();
-  mainPresenter.init();
+const AUTHORIZATION = 'Basic id2100889bigtrip99';
+const END_POINT = 'https://24.objects.htmlacademy.pro/big-trip';
+
+const apiService = new BigTripApiService(END_POINT, AUTHORIZATION);
+
+const filterModel = new FilterModel();
+const eventsModel = new EventsModel({ apiService });
+
+const mainPresenter = new MainPresenter({
+  eventsModel: eventsModel,
+  filterModel: filterModel
 });
+
+mainPresenter.init();
+eventsModel.init();

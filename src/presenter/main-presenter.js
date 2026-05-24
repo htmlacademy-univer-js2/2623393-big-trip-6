@@ -3,16 +3,14 @@ import SortView from '../view/sort-view.js';
 import EmptyListView from '../view/empty-list-view.js';
 import LoadingView from '../view/loading-view.js';
 import ErrorView from '../view/error-view.js';
-import EventsModel from '../model/events-model.js';
-import FilterModel from '../model/filter-model.js';
 import FilterPresenter from './filter-presenter.js';
 import PointPresenter from './point-presenter.js';
 import NewPointPresenter from './new-point-presenter.js';
 import { FilterType, SortType, UserAction } from '../const.js';
 
 export default class MainPresenter {
-  #eventsModel = new EventsModel();
-  #filterModel = new FilterModel();
+  #eventsModel = null; // Просто объявляем приватные свойства
+  #filterModel = null;
   #eventsListComponent = document.createElement('ul');
 
   #pointPresenters = new Map();
@@ -30,7 +28,10 @@ export default class MainPresenter {
   #isError = false;
   #isCreatingNewPoint = false;
 
-  constructor() {
+  constructor({ eventsModel, filterModel }) {
+    this.#eventsModel = eventsModel;
+    this.#filterModel = filterModel;
+
     this.#handleFilterChange = this.#handleFilterChange.bind(this);
     this.#handleSortChange = this.#handleSortChange.bind(this);
     this.#handleModelEvent = this.#handleModelEvent.bind(this);
@@ -38,7 +39,20 @@ export default class MainPresenter {
     this.#handleNewEventClick = this.#handleNewEventClick.bind(this);
   }
 
-  #handleModelEvent = () => {
+  #handleModelEvent = (updateType, data) => {
+    if (updateType === 'INIT') {
+      this.#isLoading = false;
+
+      if (data && data.isError) {
+        this.#isError = true;
+        this.#showError();
+        return;
+      }
+
+      this.#renderEvents();
+      return;
+    }
+
     this.#currentFilter = this.#filterModel.getFilter();
     this.#currentSort = SortType.DAY;
     this.#renderEvents();
@@ -58,12 +72,16 @@ export default class MainPresenter {
     this.#renderEvents();
   };
 
-  #handleUserAction = (actionType, update) => {
+  #handleUserAction = async (actionType, update) => {
     const updateType = 'MINOR';
 
     switch (actionType) {
       case UserAction.UPDATE_EVENT:
-        this.#eventsModel.updateEvent(updateType, update);
+        try {
+          await this.#eventsModel.updateEvent(updateType, update);
+        } catch (err) {
+          throw new Error(err);
+        }
         break;
       case UserAction.ADD_EVENT:
         this.#eventsModel.addEvent(updateType, update);
@@ -165,17 +183,6 @@ export default class MainPresenter {
     this.#eventsListComponent.classList.add('trip-events__list');
 
     this.#showLoading();
-
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 300));
-      this.#isLoading = false;
-      this.#isError = false;
-      this.#renderEvents();
-    } catch (err) {
-      this.#isLoading = false;
-      this.#isError = true;
-      this.#showError();
-    }
   }
 
   #showLoading() {
