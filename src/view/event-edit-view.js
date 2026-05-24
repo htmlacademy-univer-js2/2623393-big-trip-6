@@ -54,26 +54,49 @@ export default class EventEditView extends AbstractStatefulView {
       `;
     }).join('');
 
-    const isDestinationExists = destinationData && (
-      destinationData.description ||
-      (destinationData.pictures && destinationData.pictures.length > 0)
-    );
+    // Выносим генерацию радиокнопок типов точек маршрута
+    const eventTypesHtml = EVENT_TYPES.map((eventType) => {
+      const isChecked = type === eventType ? 'checked' : '';
+      return `
+        <div class="event__type-item">
+          <input
+            id="event-type-${eventType}-1"
+            class="event__type-input visually-hidden"
+            type="radio"
+            name="event-type"
+            value="${eventType}"
+            ${isChecked}
+          >
+          <label class="event__type-label event__type-label--${eventType}" for="event-type-${eventType}-1">
+            ${eventType.charAt(0).toUpperCase() + eventType.slice(1)}
+          </label>
+        </div>
+      `;
+    }).join('');
 
-    const destinationHtml = isDestinationExists
+    // Выносим блок с фотографиями отдельно
+    let picturesHtml = '';
+    if (destinationData && destinationData.pictures && destinationData.pictures.length > 0) {
+      const picturesList = destinationData.pictures.map((pic) =>
+        `<img class="event__photo" src="${he.encode(pic.src)}" alt="${he.encode(pic.description)}">`
+      ).join('');
+
+      picturesHtml = `
+        <div class="event__photos-container">
+          <div class="event__photos-tape">
+            ${picturesList}
+          </div>
+        </div>
+      `;
+    }
+
+    // Выносим блок пункта назначения
+    const destinationHtml = destinationData && (destinationData.description || picturesHtml)
       ? `
         <section class="event__section event__section--destination">
           <h3 class="event__section-title event__section-title--destination">Destination</h3>
           <p class="event__destination-description">${he.encode(destinationData.description)}</p>
-          ${destinationData.pictures && destinationData.pictures.length > 0
-    ? `
-              <div class="event__photos-container">
-                <div class="event__photos-tape">
-                  ${destinationData.pictures.map((pic) =>
-    `<img class="event__photo" src="${he.encode(pic.src)}" alt="${he.encode(pic.description)}">`
-  ).join('')}
-                </div>
-              </div>`
-    : ''}
+          ${picturesHtml}
         </section>`
       : '';
 
@@ -89,24 +112,7 @@ export default class EventEditView extends AbstractStatefulView {
             <div class="event__type-list">
               <fieldset class="event__type-group">
                 <legend class="visually-hidden">Event type</legend>
-                ${EVENT_TYPES.map((eventType) => {
-    const isChecked = type === eventType ? 'checked' : '';
-    return `
-                    <div class="event__type-item">
-                      <input
-                        id="event-type-${eventType}-1"
-                        class="event__type-input visually-hidden"
-                        type="radio"
-                        name="event-type"
-                        value="${eventType}"
-                        ${isChecked}
-                      >
-                      <label class="event__type-label event__type-label--${eventType}" for="event-type-${eventType}-1">
-                        ${eventType.charAt(0).toUpperCase() + eventType.slice(1)}
-                      </label>
-                    </div>
-                  `;
-  }).join('')}
+                ${eventTypesHtml}
               </fieldset>
             </div>
           </div>
@@ -180,21 +186,37 @@ export default class EventEditView extends AbstractStatefulView {
     const rollupBtn = this.element.querySelector('.event__rollup-btn');
     const resetBtn = this.element.querySelector('.event__reset-btn');
     const form = this.element.querySelector('form');
+    const typeGroup = this.element.querySelector('.event__type-group');
+    const destinationInput = this.element.querySelector('.event__input--destination');
+    const offersContainer = this.element.querySelector('.event__available-offers');
+    const priceInput = this.element.querySelector('.event__input--price');
 
     if (rollupBtn) {
       rollupBtn.addEventListener('click', this.#closeClickHandler);
     }
     if (resetBtn) {
-      resetBtn.addEventListener('click', this.#closeClickHandler);
+      resetBtn.addEventListener('click', this.#resetClickHandler);
     }
     if (form) {
       form.addEventListener('submit', this.#formSubmitHandler);
+    }
+    if (typeGroup) {
+      typeGroup.addEventListener('change', this.#typeChangeHandler);
+    }
+    if (destinationInput) {
+      destinationInput.addEventListener('change', this.#destinationChangeHandler);
+    }
+    if (offersContainer) {
+      offersContainer.addEventListener('change', this.#offerChangeHandler);
+    }
+    if (priceInput) {
+      priceInput.addEventListener('input', this.#priceInputHandler);
     }
   }
 
   #formSubmitHandler = (evt) => {
     evt.preventDefault();
-    this.#onFormSubmit();
+    this.#onFormSubmit(EventEditView.parseStateToEvent(this._state));
   };
 
   #closeClickHandler = (evt) => {
@@ -202,8 +224,58 @@ export default class EventEditView extends AbstractStatefulView {
     this.#onCloseClick();
   };
 
+  #resetClickHandler = (evt) => {
+    evt.preventDefault();
+    this.#onDeleteClick(EventEditView.parseStateToEvent(this._state));
+  };
+
+  #typeChangeHandler = (evt) => {
+    evt.preventDefault();
+    this.updateElement({
+      type: evt.target.value,
+      offers: [],
+    });
+  };
+
+  #destinationChangeHandler = (evt) => {
+    evt.preventDefault();
+    const currentDestination = this.#destinations.find((d) => d.name === evt.target.value);
+
+    this.updateElement({
+      destination: currentDestination ? currentDestination.id : '',
+    });
+  };
+
+  #offerChangeHandler = (evt) => {
+    if (evt.target.tagName !== 'INPUT') {
+      return;
+    }
+    evt.preventDefault();
+
+    const offerId = evt.target.dataset.offerId;
+    const currentOffers = [...this._state.offers];
+    const index = currentOffers.indexOf(offerId);
+
+    if (index === -1) {
+      currentOffers.push(offerId);
+    } else {
+      currentOffers.splice(index, 1);
+    }
+
+    this._setState({
+      offers: currentOffers,
+    });
+  };
+
+  #priceInputHandler = (evt) => {
+    evt.preventDefault();
+    this._setState({
+      basePrice: Number(evt.target.value) || 0,
+    });
+  };
+
   static parseEventToState(event) {
-    return event || {
+    return event ? { ...event } : {
       type: EventType.FLIGHT,
       destination: '',
       dateFrom: '',
@@ -212,5 +284,9 @@ export default class EventEditView extends AbstractStatefulView {
       offers: [],
       isFavorite: false,
     };
+  }
+
+  static parseStateToEvent(state) {
+    return { ...state };
   }
 }
