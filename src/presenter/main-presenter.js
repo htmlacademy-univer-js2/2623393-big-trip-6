@@ -7,9 +7,10 @@ import FilterPresenter from './filter-presenter.js';
 import PointPresenter from './point-presenter.js';
 import NewPointPresenter from './new-point-presenter.js';
 import { FilterType, SortType, UserAction } from '../const.js';
+import TripInfoPresenter from './trip-info-presenter.js';
 
 export default class MainPresenter {
-  #eventsModel = null; // Просто объявляем приватные свойства
+  #eventsModel = null;
   #filterModel = null;
   #eventsListComponent = document.createElement('ul');
 
@@ -21,6 +22,7 @@ export default class MainPresenter {
   #emptyListComponent = null;
   #loadingComponent = null;
   #errorComponent = null;
+  #tripInfoPresenter = null;
 
   #currentFilter = FilterType.EVERYTHING;
   #currentSort = SortType.DAY;
@@ -185,6 +187,14 @@ export default class MainPresenter {
       },
     });
     this.#filterPresenter.init();
+
+    const tripMainContainer = document.querySelector('.trip-main');
+
+    this.#tripInfoPresenter = new TripInfoPresenter({
+      tripInfoContainer: tripMainContainer,
+      eventsModel: this.#eventsModel,
+    });
+    this.#tripInfoPresenter.init();
 
     newEventButton.addEventListener('click', this.#handleNewEventClick);
     this.#eventsListComponent.classList.add('trip-events__list');
