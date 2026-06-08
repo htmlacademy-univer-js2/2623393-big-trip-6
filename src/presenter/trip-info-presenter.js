@@ -12,11 +12,11 @@ export default class TripInfoPresenter {
   }
 
   init() {
-    this.#eventsModel.addObserver(this.#handleModelEvent);
+    this.#eventsModel.addObserver(this.#modelEventHandler);
     this.#renderTripInfo();
   }
 
-  #handleModelEvent = () => {
+  #modelEventHandler = () => {
     this.#renderTripInfo();
   };
 

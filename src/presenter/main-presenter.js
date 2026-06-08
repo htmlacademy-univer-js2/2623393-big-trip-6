@@ -13,6 +13,7 @@ export default class MainPresenter {
   #eventsModel = null;
   #filterModel = null;
   #eventsListComponent = document.createElement('ul');
+  #tripEventsElement = null;
 
   #pointPresenters = new Map();
   #newPointPresenter = null;
@@ -23,6 +24,7 @@ export default class MainPresenter {
   #loadingComponent = null;
   #errorComponent = null;
   #tripInfoPresenter = null;
+  #newEventButton = null;
 
   #currentFilter = FilterType.EVERYTHING;
   #currentSort = SortType.DAY;
@@ -34,39 +36,34 @@ export default class MainPresenter {
     this.#eventsModel = eventsModel;
     this.#filterModel = filterModel;
 
-    this.#handleFilterChange = this.#handleFilterChange.bind(this);
-    this.#handleSortChange = this.#handleSortChange.bind(this);
-    this.#handleModelEvent = this.#handleModelEvent.bind(this);
-    this.#handleUserAction = this.#handleUserAction.bind(this);
-    this.#handleNewEventClick = this.#handleNewEventClick.bind(this);
+    this.#filterChangeHandler = this.#filterChangeHandler.bind(this);
+    this.#sortChangeHandler = this.#sortChangeHandler.bind(this);
+    this.#modelEventHandler = this.#modelEventHandler.bind(this);
+    this.#userActionHandler = this.#userActionHandler.bind(this);
+    this.#newEventClickHandler = this.#newEventClickHandler.bind(this);
   }
 
-  #handleModelEvent = (updateType, data) => {
+  #modelEventHandler = (updateType, data) => {
     if (updateType === 'INIT') {
       this.#isLoading = false;
-
       if (data && data.isError) {
         this.#isError = true;
         this.#showError();
         return;
       }
-
       this.#renderEvents();
       return;
     }
+    this.#renderEvents();
+  };
 
+  #filterChangeHandler = () => {
     this.#currentFilter = this.#filterModel.getFilter();
     this.#currentSort = SortType.DAY;
     this.#renderEvents();
   };
 
-  #handleFilterChange = () => {
-    this.#currentFilter = this.#filterModel.getFilter();
-    this.#currentSort = SortType.DAY;
-    this.#renderEvents();
-  };
-
-  #handleSortChange = (sortType) => {
+  #sortChangeHandler = (sortType) => {
     if (this.#currentSort === sortType) {
       return;
     }
@@ -74,7 +71,7 @@ export default class MainPresenter {
     this.#renderEvents();
   };
 
-  #handleUserAction = async (actionType, update) => {
+  #userActionHandler = async (actionType, update) => {
     const updateType = 'MINOR';
 
     switch (actionType) {
@@ -102,7 +99,7 @@ export default class MainPresenter {
     }
   };
 
-  #handleNewEventClick = () => {
+  #newEventClickHandler = () => {
     if (this.#isCreatingNewPoint) {
       return;
     }
@@ -113,6 +110,7 @@ export default class MainPresenter {
     this.#pointPresenters.forEach((presenter) => presenter.resetView());
 
     this.#isCreatingNewPoint = true;
+    this.#newEventButton.disabled = true;
     this.#showNewPointForm();
   };
 
@@ -122,38 +120,38 @@ export default class MainPresenter {
       this.#newPointPresenter = null;
     }
     this.#isCreatingNewPoint = false;
+    this.#newEventButton.disabled = false;
     this.#renderEvents();
   };
 
   #showNewPointForm = () => {
-    this.#clearEventsList();
+    if (this.#emptyListComponent) {
+      remove(this.#emptyListComponent);
+      this.#emptyListComponent = null;
+    }
 
     this.#newPointPresenter = new NewPointPresenter({
       eventListContainer: this.#eventsListComponent,
       eventsModel: this.#eventsModel,
       onClose: this.#hideNewPointForm,
-      onSave: (newEvent) => {
+      onSave: async (newEvent) => {
         const eventWithId = {
           ...newEvent,
         };
-        this.#handleUserAction(UserAction.ADD_EVENT, eventWithId);
+        await this.#userActionHandler(UserAction.ADD_EVENT, eventWithId);
         this.#hideNewPointForm();
       },
     });
 
     this.#newPointPresenter.init();
-    document.querySelector('.trip-events').append(this.#eventsListComponent);
   };
 
-  #handlePointChange = (updatedPoint) => {
-    this.#handleUserAction(UserAction.UPDATE_EVENT, updatedPoint);
-  };
-
-  #handleModeChange = () => {
+  #modeChangeHandler = () => {
     if (this.#isCreatingNewPoint && this.#newPointPresenter) {
       this.#newPointPresenter.destroy();
       this.#newPointPresenter = null;
       this.#isCreatingNewPoint = false;
+      this.#newEventButton.disabled = false;
     }
     this.#pointPresenters.forEach((presenter) => presenter.resetView());
   };
@@ -162,8 +160,8 @@ export default class MainPresenter {
     const pointPresenter = new PointPresenter({
       eventListContainer: this.#eventsListComponent,
       eventsModel: this.#eventsModel,
-      onDataChange: this.#handleUserAction,
-      onModeChange: this.#handleModeChange,
+      onDataChange: this.#userActionHandler,
+      onModeChange: this.#modeChangeHandler,
     });
 
     pointPresenter.init(event);
@@ -172,16 +170,17 @@ export default class MainPresenter {
 
   async init() {
     const filtersContainer = document.querySelector('.trip-controls__filters');
-    const newEventButton = document.querySelector('.trip-main__event-add-btn');
+    this.#newEventButton = document.querySelector('.trip-main__event-add-btn');
+    this.#tripEventsElement = document.querySelector('.trip-events');
 
-    this.#eventsModel.addObserver(this.#handleModelEvent);
-    this.#filterModel.addObserver(this.#handleFilterChange);
+    this.#eventsModel.addObserver(this.#modelEventHandler);
+    this.#filterModel.addObserver(this.#filterChangeHandler);
 
     this.#filterPresenter = new FilterPresenter({
       filterContainer: filtersContainer,
       filterModel: this.#filterModel,
       eventsModel: this.#eventsModel,
-      onFilterChange: this.#handleFilterChange,
+      onFilterChange: this.#filterChangeHandler,
       onSortReset: () => {
         this.#currentSort = SortType.DAY;
       },
@@ -196,8 +195,9 @@ export default class MainPresenter {
     });
     this.#tripInfoPresenter.init();
 
-    newEventButton.addEventListener('click', this.#handleNewEventClick);
+    this.#newEventButton.addEventListener('click', this.#newEventClickHandler);
     this.#eventsListComponent.classList.add('trip-events__list');
+    this.#tripEventsElement.append(this.#eventsListComponent);
 
     this.#showLoading();
   }
@@ -206,14 +206,12 @@ export default class MainPresenter {
     this.#clearEventsList();
     this.#loadingComponent = new LoadingView();
     render(this.#loadingComponent, this.#eventsListComponent);
-    document.querySelector('.trip-events').append(this.#eventsListComponent);
   }
 
   #showError() {
     this.#clearEventsList();
     this.#errorComponent = new ErrorView();
     render(this.#errorComponent, this.#eventsListComponent);
-    document.querySelector('.trip-events').append(this.#eventsListComponent);
     this.#updateFiltersAvailability();
   }
 
@@ -221,35 +219,27 @@ export default class MainPresenter {
     this.#clearEventsList();
     this.#emptyListComponent = new EmptyListView(this.#currentFilter);
     render(this.#emptyListComponent, this.#eventsListComponent);
-    document.querySelector('.trip-events').append(this.#eventsListComponent);
     this.#updateFiltersAvailability();
   }
 
   #renderEvents() {
-    if (this.#isCreatingNewPoint) {
-      return;
-    }
-
     this.#clearEventsList();
 
     const events = this.#getFilteredAndSortedEvents();
-    const eventsSection = document.querySelector('.trip-events');
 
     if (this.#sortComponent) {
       remove(this.#sortComponent);
     }
     this.#sortComponent = new SortView(
       this.#currentSort,
-      this.#handleSortChange,
+      this.#sortChangeHandler,
     );
-    render(this.#sortComponent, eventsSection, 'afterbegin');
+    render(this.#sortComponent, this.#tripEventsElement, 'afterbegin');
 
-    if (events.length === 0) {
+    if (events.length === 0 && !this.#isCreatingNewPoint) {
       this.#showEmptyList();
       return;
     }
-
-    document.querySelector('.trip-events').append(this.#eventsListComponent);
 
     events.forEach((event) => {
       this.#renderPoint(event);
@@ -304,6 +294,16 @@ export default class MainPresenter {
     const events = this.#eventsModel.getEvents();
     const now = new Date();
 
+    if (events.length === 0) {
+      if (this.#filterPresenter) {
+        this.#filterPresenter.setFilterDisabled(FilterType.EVERYTHING, true);
+        this.#filterPresenter.setFilterDisabled(FilterType.FUTURE, true);
+        this.#filterPresenter.setFilterDisabled(FilterType.PRESENT, true);
+        this.#filterPresenter.setFilterDisabled(FilterType.PAST, true);
+      }
+      return;
+    }
+
     const hasFuture = events.some((event) => new Date(event.dateFrom) > now);
     const hasPresent = events.some((event) => {
       const start = new Date(event.dateFrom);
@@ -313,6 +313,7 @@ export default class MainPresenter {
     const hasPast = events.some((event) => new Date(event.dateEnd) < now);
 
     if (this.#filterPresenter) {
+      this.#filterPresenter.setFilterDisabled(FilterType.EVERYTHING, events.length === 0);
       this.#filterPresenter.setFilterDisabled(FilterType.FUTURE, !hasFuture);
       this.#filterPresenter.setFilterDisabled(FilterType.PRESENT, !hasPresent);
       this.#filterPresenter.setFilterDisabled(FilterType.PAST, !hasPast);

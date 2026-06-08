@@ -42,17 +42,17 @@ export default class PointPresenter {
       event: this.#event,
       destination,
       offers: eventOffers,
-      onRollupClick: this.#handleEditClick,
-      onFavoriteClick: this.#handleFavoriteClick
+      onRollupClick: this.#editClickHandler,
+      onFavoriteClick: this.#favoriteClickHandler
     });
 
     this.#pointEditComponent = new EventEditView(
       this.#event,
       this.#eventsModel.getDestinations(),
       this.#eventsModel.getOffers(),
-      this.#handleFormSubmit,
-      this.#handleRollupClick,
-      this.#handleDeleteClick,
+      this.#formSubmitHandler,
+      this.#rollupClickHandler,
+      this.#deleteClickHandler,
     );
 
     if (prevPointComponent === null || prevPointEditComponent === null) {
@@ -92,7 +92,16 @@ export default class PointPresenter {
 
   #replaceFormToPoint() {
     replace(this.#pointComponent, this.#pointEditComponent);
-    document.removeEventListener('removeEventListener', this.#escKeydownHandler);
+    document.removeEventListener('keydown', this.#escKeydownHandler);
+
+    this.#pointEditComponent = new EventEditView(
+      this.#event,
+      this.#eventsModel.getDestinations(),
+      this.#eventsModel.getOffers(),
+      this.#formSubmitHandler,
+      this.#rollupClickHandler,
+      this.#deleteClickHandler,
+    );
     this.#mode = Mode.DEFAULT;
   }
 
@@ -103,15 +112,15 @@ export default class PointPresenter {
     }
   };
 
-  #handleEditClick = () => {
+  #editClickHandler = () => {
     this.#replacePointToForm();
   };
 
-  #handleRollupClick = () => {
+  #rollupClickHandler = () => {
     this.#replaceFormToPoint();
   };
 
-  #handleFavoriteClick = async () => {
+  #favoriteClickHandler = async () => {
     try {
       await this.#handleDataChange?.(
         UserAction.UPDATE_EVENT,
@@ -122,7 +131,7 @@ export default class PointPresenter {
     }
   };
 
-  #handleFormSubmit = async (updatedEvent) => {
+  #formSubmitHandler = async (updatedEvent) => {
     this.#pointEditComponent.setViewState({ isSaving: true });
 
     try {
@@ -135,7 +144,7 @@ export default class PointPresenter {
     }
   };
 
-  #handleDeleteClick = async (deletedEvent) => {
+  #deleteClickHandler = async (deletedEvent) => {
     this.#pointEditComponent.setViewState({ isDeleting: true });
 
     try {

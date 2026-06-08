@@ -3,7 +3,7 @@ import EventsModel from './model/events-model.js';
 import FilterModel from './model/filter-model.js';
 import BigTripApiService from './big-trip-api-service.js';
 
-const AUTHORIZATION = 'Basic id2100889bigtrip99';
+const AUTHORIZATION = `Basic ${Math.random().toString(36).slice(2)}`;
 const END_POINT = 'https://24.objects.htmlacademy.pro/big-trip';
 
 const apiService = new BigTripApiService(END_POINT, AUTHORIZATION);

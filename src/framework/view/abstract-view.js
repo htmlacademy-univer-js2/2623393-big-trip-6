@@ -5,7 +5,7 @@ import './abstract-view.css';
 const SHAKE_CLASS_NAME = 'shake';
 
 /** @const {number} Время анимации в миллисекундах */
-const SHAKE_ANIMATION_TIMEOUT = 600;
+export const SHAKE_ANIMATION_TIMEOUT = 600;
 
 /**
  * Абстрактный класс представления

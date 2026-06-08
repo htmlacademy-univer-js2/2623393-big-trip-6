@@ -36,9 +36,9 @@ export default class NewPointPresenter {
       newEvent,
       this.#eventsModel.getDestinations(),
       this.#eventsModel.getOffers(),
-      this.#handleSave,
-      this.#handleCancel,
-      this.#handleCancel
+      this.#saveHandler,
+      this.#cancelHandler,
+      this.#cancelHandler
     );
 
     render(this.#newPointComponent, this.#eventListContainer, 'afterbegin');
@@ -59,16 +59,16 @@ export default class NewPointPresenter {
   #escKeydownHandler = (evt) => {
     if (evt.key === 'Escape' || evt.key === 'Esc') {
       evt.preventDefault();
-      this.#handleCancel();
+      this.#cancelHandler();
     }
   };
 
-  #handleCancel = () => {
+  #cancelHandler = () => {
     this.destroy();
     this.#onClose?.();
   };
 
-  #handleSave = async (newEvent) => {
+  #saveHandler = async (newEvent) => {
     this.#newPointComponent.setViewState({ isSaving: true });
     try {
       await this.#onSave(newEvent);

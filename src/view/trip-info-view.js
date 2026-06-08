@@ -1,5 +1,5 @@
 import AbstractView from '../framework/view/abstract-view.js';
-import { humanizePointDate } from '../utils/date.js';
+import { humanizeTripDate } from '../utils/date.js';
 
 export default class TripInfoView extends AbstractView {
   #route = '';
@@ -33,7 +33,7 @@ export default class TripInfoView extends AbstractView {
     if (!this.#startDate || !this.#endDate) {
       return '';
     }
-    return `${humanizePointDate(this.#startDate)} — ${humanizePointDate(this.#endDate)}`;
+    return `${humanizeTripDate(this.#startDate)} — ${humanizeTripDate(this.#endDate)}`;
   }
 
   updateElement({ route, startDate, endDate, totalCost }) {

@@ -15,7 +15,7 @@ export default class FilterPresenter {
     this.#onFilterChange = onFilterChange;
     this.#onSortReset = onSortReset;
 
-    this.#filterModel.addObserver(this.#handleModelEvent);
+    this.#filterModel.addObserver(this.#modelEventHandler);
   }
 
   init() {
@@ -23,13 +23,13 @@ export default class FilterPresenter {
 
     this.#filterComponent = new FiltersView(
       currentFilter,
-      this.#handleFilterTypeChange
+      this.#filterTypeChangeHandler
     );
 
     render(this.#filterComponent, this.#filterContainer);
   }
 
-  #handleFilterTypeChange = (filterType) => {
+  #filterTypeChangeHandler = (filterType) => {
     if (this.#filterModel.getFilter() === filterType) {
       return;
     }
@@ -38,7 +38,7 @@ export default class FilterPresenter {
     this.#onFilterChange?.();
   };
 
-  #handleModelEvent = () => {
+  #modelEventHandler = () => {
     this.#filterComponent.updateFilter(this.#filterModel.getFilter());
   };
 
