@@ -1,6 +1,7 @@
 import { render, remove } from '../framework/render.js';
 import NewPointView from '../view/event-edit-view.js';
 import { EventType } from '../const.js';
+import { isEscapeKey } from '../utils/common.js';
 
 export default class NewPointPresenter {
   #eventListContainer = null;
@@ -57,7 +58,7 @@ export default class NewPointPresenter {
   }
 
   #escKeydownHandler = (evt) => {
-    if (evt.key === 'Escape' || evt.key === 'Esc') {
+    if (isEscapeKey(evt)) {
       evt.preventDefault();
       this.#cancelHandler();
     }

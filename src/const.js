@@ -49,6 +49,8 @@ const Method = {
   DELETE: 'DELETE',
 };
 
+const MAX_ROUTE_DESTINATIONS = 3;
+
 export {
   EventType,
   UserAction,
@@ -57,4 +59,5 @@ export {
   SortType,
   TimeLimit,
   Method,
+  MAX_ROUTE_DESTINATIONS,
 };

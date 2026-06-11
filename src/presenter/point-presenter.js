@@ -2,6 +2,7 @@ import { render, replace, remove } from '../framework/render.js';
 import EventView from '../view/event-view.js';
 import EventEditView from '../view/event-edit-view.js';
 import { UserAction } from '../const.js';
+import { isEscapeKey } from '../utils/common.js';
 
 const Mode = {
   DEFAULT: 'DEFAULT',
@@ -106,7 +107,7 @@ export default class PointPresenter {
   }
 
   #escKeydownHandler = (evt) => {
-    if (evt.key === 'Escape' || evt.key === 'Esc') {
+    if (isEscapeKey(evt)) {
       evt.preventDefault();
       this.#replaceFormToPoint();
     }

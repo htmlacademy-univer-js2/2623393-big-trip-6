@@ -1,5 +1,6 @@
 import TripInfoView from '../view/trip-info-view.js';
 import { render, replace, remove } from '../framework/render.js';
+import { MAX_ROUTE_DESTINATIONS } from '../const.js';
 
 export default class TripInfoPresenter {
   #tripInfoContainer = null;
@@ -70,7 +71,7 @@ export default class TripInfoPresenter {
       return '';
     }
 
-    if (uniqueDestinations.length <= 3) {
+    if (uniqueDestinations.length <= MAX_ROUTE_DESTINATIONS) {
       return uniqueDestinations.join(' — ');
     }
 

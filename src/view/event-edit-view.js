@@ -255,8 +255,8 @@ export default class EventEditView extends AbstractStatefulView {
   }
 
   #getDestinationOptionsHtml() {
-    return this.#destinations.map((d) =>
-      `<option value="${he.encode(d.name)}"></option>`
+    return this.#destinations.map((destination) =>
+      `<option value="${he.encode(destination.name)}"></option>`
     ).join('');
   }
 
@@ -300,8 +300,8 @@ export default class EventEditView extends AbstractStatefulView {
 
     let picturesHtml = '';
     if (destinationData.pictures && destinationData.pictures.length > 0) {
-      const picturesList = destinationData.pictures.map((pic) =>
-        `<img class="event__photo" src="${he.encode(pic.src)}" alt="${he.encode(pic.description)}">`
+      const picturesList = destinationData.pictures.map((picture) =>
+        `<img class="event__photo" src="${he.encode(picture.src)}" alt="${he.encode(picture.description)}">`
       ).join('');
 
       picturesHtml = `
@@ -423,7 +423,7 @@ export default class EventEditView extends AbstractStatefulView {
 
   #destinationChangeHandler = (evt) => {
     evt.preventDefault();
-    const currentDestination = this.#destinations.find((d) => d.name === evt.target.value);
+    const currentDestination = this.#destinations.find((destination) => destination.name === evt.target.value);
 
     this.updateElement({
       destination: currentDestination ? currentDestination.id : '',
